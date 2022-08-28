@@ -140,7 +140,7 @@ const char* wasm_rt_strerror(wasm_rt_trap_t trap);
  *    => returns 1
  *  ```
  */
-uint32_t wasm_rt_register_func_type(uint32_t params, uint32_t results, ...);
+uint32_t wasm_rt_register_func_type(uint32_t params, uint32_t results, wasm_rt_type_t *arg_types);
 
 /**
  * Initialize a Memory object with an initial page size of `initial_pages` and

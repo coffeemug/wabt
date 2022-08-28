@@ -26,7 +26,6 @@
 #include <string.h>
 
 #define PAGE_SIZE 65536
-#define MAX_EXCEPTION_SIZE PAGE_SIZE
 
 typedef struct FuncType {
   wasm_rt_type_t* params;
@@ -37,10 +36,6 @@ typedef struct FuncType {
 
 static FuncType* g_func_types;
 static uint32_t g_func_type_count;
-
-static uint32_t g_active_exception_tag;
-static uint8_t g_active_exception[MAX_EXCEPTION_SIZE];
-static uint32_t g_active_exception_size;
 
 void wasm_rt_trap(wasm_rt_trap_t code) {
   // TODO: call sol_panic (or alternatively, drop all the exception stuff)
@@ -61,22 +56,18 @@ static bool func_types_are_equal(FuncType* a, FuncType* b) {
 
 uint32_t wasm_rt_register_func_type(uint32_t param_count,
                                     uint32_t result_count,
-                                    ...) {
+                                    wasm_rt_type_t *arg_types) {
   FuncType func_type;
   func_type.param_count = param_count;
   func_type.params = malloc(param_count * sizeof(wasm_rt_type_t));
   func_type.result_count = result_count;
   func_type.results = malloc(result_count * sizeof(wasm_rt_type_t));
 
-  va_list args;
-  va_start(args, result_count);
-
   uint32_t i;
   for (i = 0; i < param_count; ++i)
-    func_type.params[i] = va_arg(args, wasm_rt_type_t);
+    func_type.params[i] = arg_types[i];
   for (i = 0; i < result_count; ++i)
-    func_type.results[i] = va_arg(args, wasm_rt_type_t);
-  va_end(args);
+    func_type.results[i] = arg_types[param_count + i];
 
   for (i = 0; i < g_func_type_count; ++i) {
     if (func_types_are_equal(&g_func_types[i], &func_type)) {

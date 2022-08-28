@@ -908,17 +908,17 @@ void CWriter::WriteFuncTypes() {
     FuncType* func_type = cast<FuncType>(type);
     Index num_params = func_type->GetNumParams();
     Index num_results = func_type->GetNumResults();
-    Write("func_types[", func_type_index, "] = wasm_rt_register_func_type(",
-          num_params, ", ", num_results);
+
+    Write("wasm_rt_type_t arg_types[", num_params + num_results, "];", Newline());
     for (Index i = 0; i < num_params; ++i) {
-      Write(", ", TypeEnum(func_type->GetParamType(i)));
+      Write("arg_types[", i, "] = ", TypeEnum(func_type->GetParamType(i)), ";", Newline());
     }
-
     for (Index i = 0; i < num_results; ++i) {
-      Write(", ", TypeEnum(func_type->GetResultType(i)));
+      Write("arg_types[", num_params + i, "] = ", TypeEnum(func_type->GetResultType(i)), ";", Newline());
     }
 
-    Write(");", Newline());
+    Write("func_types[", func_type_index, "] = wasm_rt_register_func_type(",
+          num_params, ", ", num_results, ", arg_types", ");", Newline());
     ++func_type_index;
   }
   Write(CloseBrace(), Newline());
