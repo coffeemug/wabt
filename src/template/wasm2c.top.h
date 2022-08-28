@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include <solana_sdk.h>
 
 #include "wasm-rt.h"
 

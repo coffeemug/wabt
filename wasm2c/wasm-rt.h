@@ -18,7 +18,7 @@
 #define WASM_RT_H_
 
 #include <stdbool.h>
-#include <stdint.h>
+#include <solana_sdk.h>
 #include <string.h>
 
 #ifdef __cplusplus
