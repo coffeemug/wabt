@@ -17,7 +17,6 @@
 #ifndef WASM_RT_H_
 #define WASM_RT_H_
 
-#include <setjmp.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -44,69 +43,6 @@ extern "C" {
 #define wasm_rt_memcpy memcpy
 #endif
 
-/**
- * Enable memory checking via a signal handler via the following definition:
- *
- * #define WASM_RT_MEMCHECK_SIGNAL_HANDLER 1
- *
- * This is usually 10%-25% faster, but requires OS-specific support.
- */
-
-/** Check whether the signal handler is supported at all. */
-#if (defined(__linux__) || defined(__unix__) || defined(__APPLE__)) && \
-    defined(__WORDSIZE) && __WORDSIZE == 64
-
-/* If the signal handler is supported, then use it by default. */
-#ifndef WASM_RT_MEMCHECK_SIGNAL_HANDLER
-#define WASM_RT_MEMCHECK_SIGNAL_HANDLER 1
-#endif
-
-#if WASM_RT_MEMCHECK_SIGNAL_HANDLER
-#define WASM_RT_MEMCHECK_SIGNAL_HANDLER_POSIX 1
-#endif
-
-#else
-
-/* The signal handler is not supported, error out if the user was trying to
- * enable it. */
-#if WASM_RT_MEMCHECK_SIGNAL_HANDLER
-#error "Signal handler is not supported for this OS/Architecture!"
-#endif
-
-#define WASM_RT_MEMCHECK_SIGNAL_HANDLER 0
-#define WASM_RT_MEMCHECK_SIGNAL_HANDLER_POSIX 0
-
-/**
- * When the signal handler is not used, stack depth is limited explicitly.
- * The maximum stack depth before trapping can be configured by defining
- * this symbol before including wasm-rt when building the generated c files,
- * for example:
- *
- * ```
- *   cc -c -DWASM_RT_MAX_CALL_STACK_DEPTH=100 my_module.c -o my_module.o
- * ```
- */
-#ifndef WASM_RT_MAX_CALL_STACK_DEPTH
-#define WASM_RT_MAX_CALL_STACK_DEPTH 500
-#endif
-
-/** Current call stack depth. */
-extern uint32_t wasm_rt_call_stack_depth;
-
-#endif
-
-#if defined(_MSC_VER)
-#define WASM_RT_NO_RETURN __declspec(noreturn)
-#else
-#define WASM_RT_NO_RETURN __attribute__((noreturn))
-#endif
-
-#if defined(__APPLE__) && WASM_RT_MEMCHECK_SIGNAL_HANDLER_POSIX
-#define WASM_RT_MERGED_OOB_AND_EXHAUSTION_TRAPS 1
-#else
-#define WASM_RT_MERGED_OOB_AND_EXHAUSTION_TRAPS 0
-#endif
-
 /** Reason a trap occurred. Provide this to `wasm_rt_trap`. */
 typedef enum {
   WASM_RT_TRAP_NONE,         /** No error. */
@@ -117,11 +53,6 @@ typedef enum {
   WASM_RT_TRAP_UNREACHABLE,        /** Unreachable instruction executed. */
   WASM_RT_TRAP_CALL_INDIRECT,      /** Invalid call_indirect, for any reason. */
   WASM_RT_TRAP_UNCAUGHT_EXCEPTION, /* Exception thrown and not caught */
-#if WASM_RT_MERGED_OOB_AND_EXHAUSTION_TRAPS
-  WASM_RT_TRAP_EXHAUSTION = WASM_RT_TRAP_OOB,
-#else
-  WASM_RT_TRAP_EXHAUSTION, /** Call stack exhausted. */
-#endif
 } wasm_rt_trap_t;
 
 /** Value types. Used to define function signatures. */
@@ -182,7 +113,7 @@ void wasm_rt_free(void);
  *
  * This is typically called by the generated code, and not the embedder.
  */
-WASM_RT_NO_RETURN void wasm_rt_trap(wasm_rt_trap_t);
+void wasm_rt_trap(wasm_rt_trap_t);
 
 /**
  * Return a human readable error string based on a trap type.
@@ -210,59 +141,6 @@ const char* wasm_rt_strerror(wasm_rt_trap_t trap);
  *  ```
  */
 uint32_t wasm_rt_register_func_type(uint32_t params, uint32_t results, ...);
-
-/**
- * Register a tag with the given size. Returns the tag.
- */
-uint32_t wasm_rt_register_tag(uint32_t size);
-
-/**
- * Set the active exception to given tag, size, and contents.
- */
-void wasm_rt_load_exception(uint32_t tag, uint32_t size, const void* values);
-
-/**
- * Throw the active exception.
- */
-WASM_RT_NO_RETURN void wasm_rt_throw(void);
-
-/**
- * The type of an unwind target if an exception is thrown and caught.
- */
-#define WASM_RT_UNWIND_TARGET jmp_buf
-
-/**
- * Get the current unwind target if an exception is thrown.
- */
-WASM_RT_UNWIND_TARGET* wasm_rt_get_unwind_target(void);
-
-/**
- * Set the unwind target if an exception is thrown.
- */
-void wasm_rt_set_unwind_target(WASM_RT_UNWIND_TARGET* target);
-
-/**
- * Tag of the active exception.
- */
-uint32_t wasm_rt_exception_tag(void);
-
-/**
- * Size of the active exception.
- */
-uint32_t wasm_rt_exception_size(void);
-
-/**
- * Contents of the active exception.
- */
-void* wasm_rt_exception(void);
-
-#if WASM_RT_MEMCHECK_SIGNAL_HANDLER_POSIX
-#define WASM_RT_SETJMP(buf) sigsetjmp(buf, 1)
-#else
-#define WASM_RT_SETJMP(buf) setjmp(buf)
-#endif
-
-#define wasm_rt_try(target) WASM_RT_SETJMP(target)
 
 /**
  * Initialize a Memory object with an initial page size of `initial_pages` and
